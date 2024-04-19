@@ -132,8 +132,17 @@ void bellmanFordMoore(const vector<vector<Station>> &grid, Station &source, vect
         if (!updated)
             break; // No updates mean we can exit early
     }
+      // Debug print the minDistances matrix
+    cout << "minDistances Matrix:" << endl;
+    for (const auto &row : minDistances) {
+        for (int dist : row) {
+            cout << (dist == INT_MAX ? "INF" : to_string(dist)) << " ";
+        }
+        cout << endl;
+    }
 }
 
+// Backtracking function to try all permutations of bath stations and compute the minimum path cost
 // Backtracking function to try all permutations of bath stations and compute the minimum path cost
 int findMinimumCost(Station &source, vector<Station> &baths, const vector<vector<int>> &minDistances)
 {
@@ -145,18 +154,34 @@ int findMinimumCost(Station &source, vector<Station> &baths, const vector<vector
     {
         int cost = 0;
         Station current = source;
+        cout << "Evaluating path: ";
         for (Station &bath : baths)
         {
-            cost += minDistances[current.x][current.y] + timeToMove(current, bath);
+            cout << "(" << current.x << "," << current.y << ") -> (" << bath.x << "," << bath.y << ") | ";
+            int travelCost = minDistances[current.x][current.y] + timeToMove(current, bath);
+            cout << "Travel Cost: " << travelCost << ", ";
+            cost += travelCost;
             current = bath;
             if (cost >= minCost)
+            {
+                cout << "Pruning, current cost: " << cost << " >= minCost: " << minCost << endl;
                 break; // Prune the search if cost exceeds current minimum
+            }
         }
-        minCost = min(minCost, cost);
+        if (cost < minCost)
+        {
+            minCost = cost;
+            cout << "New minCost found: " << minCost << endl;
+        }
+        else
+        {
+            cout << "Total cost for this permutation: " << cost << endl;
+        }
     } while (next_permutation(baths.begin(), baths.end()));
 
     return minCost;
 }
+
 
 // Function to print the grid
 void printGrid(const vector<vector<Station>>& grid) {
