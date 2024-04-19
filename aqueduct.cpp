@@ -54,7 +54,7 @@ void loadGrid(const string& filename, vector<vector<Station>>& grid, Station& so
         for (int j = 0; j < n; ++j) {
             getline(file, line);
             istringstream ss(line);
-            ss >> grid[i][j].height >> comma >> grid[i][j].x >> comma >> grid[i][j].y;
+            ss >> grid[j][i].height >> comma >> grid[j][i].x >> comma >> grid[j][i].y;
             cout << "Station at (" << grid[i][j].x << ", " << grid[i][j].y << ") has height " << grid[i][j].height << endl;
         }
     }
@@ -158,6 +158,17 @@ int findMinimumCost(Station &source, vector<Station> &baths, const vector<vector
     return minCost;
 }
 
+// Function to print the grid
+void printGrid(const vector<vector<Station>>& grid) {
+    for (const auto& row : grid) {
+        for (const auto& station : row) {
+            cout << station.height << " ";
+        }
+        cout << endl;
+    }
+}
+
+
 int main()
 {
     vector<vector<Station>> grid;
@@ -165,6 +176,10 @@ int main()
     vector<Station> baths;
 
     loadGrid("grid.txt", grid, source, baths);
+
+        // Print the grid
+    cout << "Initial Grid State:" << endl;
+    printGrid(grid);
 
     // Compute the minimum distances from every station to every other station
     vector<vector<int>> minDistances;
