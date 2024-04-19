@@ -193,6 +193,18 @@ void printGrid(const vector<vector<Station>>& grid) {
     }
 }
 
+// Function to retrieve the distance to a specific bath station
+int getDistanceToBath(const Station& bath, const vector<vector<int>>& minDistances) {
+    // Check if the bath coordinates are within the bounds of the minDistances matrix
+    if (bath.x < 0 || bath.x >= minDistances.size() || bath.y < 0 || bath.y >= minDistances[0].size()) {
+        cerr << "Error: Bath coordinates (" << bath.x << ", " << bath.y << ") are out of bounds." << endl;
+        return -1;  // Return -1 or an appropriate error code
+    }
+
+    // Retrieve and return the distance to the bath station from minDistances
+    return minDistances[bath.x][bath.y];
+}
+
 
 int main()
 {
@@ -211,7 +223,10 @@ int main()
     bellmanFordMoore(grid, source, minDistances);
 
     // Find the minimum cost using backtracking
-    int minCost = findMinimumCost(source, baths, minDistances);
+    // int minCost = findMinimumCost(source, baths, minDistances);
+
+     // Get the distance to the specified bath station
+    int minCost = getDistanceToBath(baths, minDistances);
 
     // Write the minimum cost to pathLength.txt
     ofstream outFile("pathLength.txt");
