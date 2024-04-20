@@ -1,162 +1,165 @@
 #include <iostream>
-#include <vector>
 #include <fstream>
-#include <string>
+#include <vector>
+#include <algorithm>
+#include <climits>
 #include <sstream>
-#include <limits>
-#include <cmath>
-#include <unordered_map>
+#include <map>
 
-const int MAX_HEIGHT = 1000; // An assumption for the max height to define "infinite" time cost
+using namespace std;
 
-// Parses the input file and fills out the grid and the list of B stations
-void parseInputFile(const std::string& filename, std::vector<std::vector<int>>& grid, std::vector<std::pair<int, int>>& B) {
-    std::ifstream file(filename);
-    std::string line;
-    if (file.is_open()) {
-        // Read grid dimensions
-        int m, n;
-        getline(file, line);
-        std::stringstream ss(line);
-        ss >> m >> n;
-        
-        // Resize grid based on dimensions
-        grid.resize(m, std::vector<int>(n));
-        
-        // Read the heights into the grid
-        for (int i = 0; i < m; ++i) {
-            for (int j = 0; j < n; ++j) {
-                int height;
-                file >> height;
-                grid[i][j] = height;
-            }
+// Memoization map
+map<pair<int, unsigned int>, int> memo;
+
+// Data structure to represent a station
+struct Station {
+    int height;
+    int x;
+    int y;
+
+    // Define the less-than operator for Station
+    bool operator<(const Station& other) const {
+        if (x == other.x) {
+            return y < other.y;
         }
+        return x < other.x;
+    }
+};
 
-        // Read the stations in B
-        while (getline(file, line)) {
-            if (line.empty()) continue;
-            std::stringstream ss(line);
-            int x, y;
-            ss >> x >> y;
-            B.emplace_back(x, y);
+// Function to calculate time taken to move from one station to another
+int timeToMove(const Station &a, const Station &b)
+{
+    int minCost =max(-1, 1 + (b.height - a.height));
+    cout << "Time to move from (" << a.x << ", " << a.y << ") to (" << b.x << ", " << b.y << ") is " << minCost << endl;
+    return minCost;
+}
+
+// Function to load the grid and bath stations from a file
+void loadGrid(const string& filename, vector<vector<Station>>& grid, Station& source, vector<Station>& baths) {
+    ifstream file(filename);
+    if (!file.is_open()) {
+        cerr << "Error opening file: " << filename << endl;
+        exit(1);
+    }
+
+    int m, n;
+    char comma; // to read the commas
+    string line;
+    getline(file, line);
+    istringstream ss(line);
+    ss >> m >> comma >> n;
+    cout << "Grid size: " << m << "x" << n << endl;
+    grid.resize(m, vector<Station>(n));
+
+    // Read the heights and coordinates of the stations
+    for (int i = 0; i < m; ++i) {
+        for (int j = 0; j < n; ++j) {
+            getline(file, line);
+            istringstream ss(line);
+            ss >> grid[j][i].height >> comma >> grid[j][i].x >> comma >> grid[j][i].y;
+            cout << "Station at (" << grid[i][j].x << ", " << grid[i][j].y << ") has height " << grid[i][j].height << endl;
         }
     }
+
+    // Read the source station coordinates
+    getline(file, line);
+    istringstream ssSource(line);
+    ssSource >> source.x >> comma >> source.y;
+    source.height = grid[source.x][source.y].height;
+    cout << "Source station at (" << source.x << ", " << source.y << ") has height " << source.height << endl;
+
+    // Read the bath station coordinates
+    Station bath;
+    while (getline(file, line)) {
+        istringstream ssBath(line);
+        ssBath >> bath.x >> comma >> bath.y;
+        if(ssBath) { // ensure we read a valid line
+            bath.height = grid[bath.x][bath.y].height;
+            cout << "Bath station at (" << bath.x << ", " << bath.y << ") has height " << bath.height << endl;
+            baths.push_back(bath);
+        }
+    }
+
     file.close();
 }
 
-// Calculates the time to move water between two stations
-int timeCost(const std::vector<std::vector<int>>& grid, const std::pair<int, int>& from, const std::pair<int, int>& to) {
-    return std::max(-1, 1 + (grid[to.first][to.second] - grid[from.first][from.second]));
-}
-
-std::vector<int> bellmanFord(const std::vector<std::vector<int>>& grid, const std::pair<int, int>& source) {
-    int m = grid.size();
-    int n = grid[0].size();
-    std::vector<int> distance(m * n, MAX_HEIGHT); // Initialize distances with a high value (like "infinity")
-
-    // Lambda to convert 2D grid coordinates to a single index for simplicity
-    auto coordToIndex = [n](const std::pair<int, int>& coord) {
-        return coord.first * n + coord.second;
-    };
-
-    distance[coordToIndex(source)] = 0; // Distance to source is 0
-
-    for (int i = 0; i < m * n - 1; ++i) {
-        for (int u = 0; u < m; ++u) {
-            for (int v = 0; v < n; ++v) {
-                // Check all four possible moves (up, down, left, right)
-                std::vector<std::pair<int, int>> moves = {{u - 1, v}, {u + 1, v}, {u, v - 1}, {u, v + 1}};
-                for (const auto& move : moves) {
-                    if (move.first >= 0 && move.first < m && move.second >= 0 && move.second < n) {
-                        int fromIndex = coordToIndex({u, v});
-                        int toIndex = coordToIndex(move);
-                        int cost = timeCost(grid, {u, v}, move);
-                        if (distance[fromIndex] != MAX_HEIGHT && distance[fromIndex] + cost < distance[toIndex]) {
-                            distance[toIndex] = distance[fromIndex] + cost;
+// Bellman-Ford algorithm to compute shortest paths from a source to all other stations
+void bellmanFord(const Station& source, const vector<vector<Station>>& grid, vector<vector<int>>& distances) {
+    int m = grid.size(), n = grid[0].size();
+    distances.assign(m, vector<int>(n, INT_MAX));
+    distances[source.x][source.y] = 0;
+    for (int step = 0; step < m * n - 1; step++) {
+        for (int x = 0; x < m; x++) {
+            for (int y = 0; y < n; y++) {
+                if (distances[x][y] != INT_MAX) {
+                    vector<pair<int, int>> directions = {{1, 0}, {-1, 0}, {0, 1}, {0, -1}};
+                    for (auto& dir : directions) {
+                        int newX = x + dir.first;
+                        int newY = y + dir.second;
+                        if (newX >= 0 && newX < m && newY >= 0 && newY < n) {
+                            int newCost = distances[x][y] + timeToMove(grid[x][y], grid[newX][newY]);
+                            if (newCost < distances[newX][newY]) {
+                                distances[newX][newY] = newCost;
+                            }
                         }
                     }
                 }
             }
         }
     }
-    return distance;
 }
 
+int findMinCostRecursively(const Station& current, const vector<Station>& baths, unsigned int bathMask, const vector<vector<Station>>& grid, map<pair<int, unsigned int>, int>& memo) {
+    // Memoization check
+    auto key = make_pair(current.x * 100 + current.y, bathMask);
+    if (memo.find(key) != memo.end()) return memo[key];
 
+    if (bathMask == (1 << baths.size()) - 1) return 0; // All baths visited
 
-// A utility function to set a bit in the integer bitmask
-int setBit(int mask, int bit, bool value) {
-    if (value) {
-        return mask | (1 << bit);
-    } else {
-        return mask & ~(1 << bit);
-    }
-}
+    int minCost = INT_MAX;
+    vector<vector<int>> distances;
 
-// Checks if a bit is set in the integer bitmask
-bool isBitSet(int mask, int bit) {
-    return (mask & (1 << bit)) != 0;
-}
+    // Run Bellman-Ford from the current station
+    bellmanFord(current, grid, distances);
 
-int findOptimalPath(
-    const std::vector<std::vector<int>>& grid,
-    const std::vector<std::pair<int, int>>& B,
-    std::unordered_map<int, int>& M,
-    int s,
-    int subsetMask
-) {
-    // Base case: if the subset only contains the source
-    if (subsetMask == 1) {
-        return 0; // No cost if we are just at the starting node
-    }
-
-    // Check if we have already computed the optimal path for this subset
-    if (M.find(subsetMask * B.size() + s) != M.end()) {
-        return M[subsetMask * B.size() + s];
-    }
-
-    int minPathCost = MAX_HEIGHT;
-    // Recur for all stations in the subset to find the minimum cost path
-    for (int i = 0; i < B.size(); ++i) {
-        if (isBitSet(subsetMask, i) && i != s) {
-            int nextSubsetMask = setBit(subsetMask, i, false); // Remove the current station from the next subset
-            int costToNextStation = bellmanFord(grid, B[s])[B[i].first * grid[0].size() + B[i].second]; // Cost to next station
-            int nextStationCost = findOptimalPath(grid, B, M, i, nextSubsetMask);
-            if (costToNextStation != MAX_HEIGHT && nextStationCost != MAX_HEIGHT) {
-                minPathCost = std::min(minPathCost, costToNextStation + nextStationCost);
-            }
+    for (int i = 0; i < baths.size(); ++i) {
+        if (!(bathMask & (1 << i))) {
+            int nextBathMask = bathMask | (1 << i);
+            int costToNextBath = distances[baths[i].x][baths[i].y];
+            int remainingCost = findMinCostRecursively(baths[i], baths, nextBathMask, grid, memo);
+            minCost = min(minCost, costToNextBath + remainingCost);
         }
     }
 
-    // Save the result in the memoization table before returning
-    M[subsetMask * B.size() + s] = minPathCost;
-    return minPathCost;
+    memo[key] = minCost;
+    return minCost;
 }
 
 
-int main() {
-    std::vector<std::vector<int>> grid;
-    std::vector<std::pair<int, int>> B;
+int main()
+{
+    vector<vector<Station>> grid;
+    Station source;
+    vector<Station> baths;
+      vector<vector<int>> minDistances;
 
-    // Read the input from the file
-    parseInputFile("grid.txt", grid, B);
+    loadGrid("grid.txt", grid, source, baths);
 
-    // Use a map to keep track of the computed optimal paths
-    std::unordered_map<int, int> memoizationTable;
+    // Find the minimum cost
+    int minCost = findMinCostRecursively(source, baths, 0, grid, memo);
 
-    // The starting node is always (0,0) - the source
-    int source = 0; // Assuming that the source is always the first node
-    int allStationsSubset = (1 << B.size()) - 1; // Binary representation of the subset with all stations
 
-    // Compute the optimal path cost
-    int optimalPathCost = findOptimalPath(grid, B, memoizationTable, source, allStationsSubset);
 
-    // Output the path cost to a file
-    std::ofstream outputFile("pathLength.txt");
-    if (outputFile.is_open()) {
-        outputFile << "The minimum cost of any supply path is: " << optimalPathCost << std::endl;
-        outputFile.close();
+    // Write the minimum cost to pathLength.txt
+    ofstream outFile("pathLength.txt");
+    if (!outFile.is_open())
+    {
+        cerr << "Error opening pathLength.txt for writing." << endl;
+        return 1;
     }
+    outFile << minCost << endl;
+    outFile.close();
 
+    cout << "The minimum cost of any supply path is: " << minCost << endl;
     return 0;
 }
