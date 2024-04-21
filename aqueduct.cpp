@@ -35,7 +35,6 @@ struct Station
 int timeToMove(const Station &a, const Station &b)
 {
     int minCost = max(-1, 1 + (b.height - a.height));
-    cout << "Time to move from (" << a.x << ", " << a.y << ") to (" << b.x << ", " << b.y << ") is " << minCost << endl;
     return minCost;
 }
 
@@ -54,9 +53,8 @@ void loadGrid(const string &filename, vector<vector<Station>> &grid, Station &so
     string line;
     getline(file, line);
     istringstream ss(line);
-    ss >> n >> comma >> m;
-    cout << "Grid size: " << n << "x" << m << endl;
-    grid.resize(m, vector<Station>(n));
+    ss >> m >> comma >> n;
+    grid.resize(n, vector<Station>(m));
 
     // Read the heights and coordinates of the stations
     for (int i = 0; i < m; ++i)
@@ -66,7 +64,6 @@ void loadGrid(const string &filename, vector<vector<Station>> &grid, Station &so
             getline(file, line);
             istringstream ss(line);
             ss >> grid[j][i].height >> comma >> grid[j][i].x >> comma >> grid[j][i].y;
-            cout << "Station at (" << grid[i][j].x << ", " << grid[i][j].y << ") has height " << grid[i][j].height << endl;
         }
     }
 
@@ -75,7 +72,6 @@ void loadGrid(const string &filename, vector<vector<Station>> &grid, Station &so
     istringstream ssSource(line);
     ssSource >> source.x >> comma >> source.y;
     source.height = grid[source.x][source.y].height;
-    cout << "Source station at (" << source.x << ", " << source.y << ") has height " << source.height << endl;
 
     // Read the bath station coordinates
     Station bath;
@@ -86,7 +82,6 @@ void loadGrid(const string &filename, vector<vector<Station>> &grid, Station &so
         if (ssBath)
         { // ensure we read a valid line
             bath.height = grid[bath.x][bath.y].height;
-            cout << "Bath station at (" << bath.x << ", " << bath.y << ") has height " << bath.height << endl;
             baths.push_back(bath);
         }
     }
@@ -135,7 +130,7 @@ void bellmanFord(const Station &source, const vector<vector<Station>> &grid, vec
     }
 }
 
-int findMinCostRecursively(const Station &current, const vector<Station> &baths, unsigned int bathMask, const vector<vector<Station>> &grid)
+int findMinCostRecursively(const Station &current, const vector<Station> &baths, int bathMask, const vector<vector<Station>> &grid)
 {
     pair<int, unsigned int> memoKey = {current.x * grid[0].size() + current.y, bathMask};
     if (memoRecursive.find(memoKey) != memoRecursive.end())
@@ -150,7 +145,7 @@ int findMinCostRecursively(const Station &current, const vector<Station> &baths,
     // Run Bellman-Ford from the current station
     bellmanFord(current, grid, distances);
 
-    for (int i = 0; i < baths.size(); ++i)
+    for (unsigned int i = 0; i < baths.size(); ++i)
     {
         if (!(bathMask & (1 << i)))
         {
@@ -185,7 +180,5 @@ int main()
     }
     outFile << minCost << endl;
     outFile.close();
-
-    cout << "The minimum cost of any supply path is: " << minCost << endl;
     return 0;
 }
