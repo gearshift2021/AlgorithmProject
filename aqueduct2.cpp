@@ -47,7 +47,7 @@ void loadGrid(const string& filename, vector<vector<Station>>& grid, Station& so
     string line;
     getline(file, line);
     istringstream ss(line);
-    ss >> m >> comma >> n;
+    ss >> n>> comma >> m;
     cout << "Grid size: " << m << "x" << n << endl;
     grid.resize(m, vector<Station>(n));
 
